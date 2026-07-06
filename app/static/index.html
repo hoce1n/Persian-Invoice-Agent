@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>سامانه هوشمند صدور فاکتور</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Vazirmatn', 'Tahoma', 'sans-serif'] },
+          colors: {
+            surface: { DEFAULT: '#0f1419', light: '#1a2332', card: '#151d2b' },
+            accent: { DEFAULT: '#22d3ee', dim: '#0891b2', glow: '#67e8f9' },
+            success: '#34d399',
+            warning: '#fbbf24',
+          },
+          animation: {
+            'pulse-ring': 'pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'fade-in': 'fade-in 0.4s ease-out',
+            'slide-up': 'slide-up 0.35s ease-out',
+          },
+          keyframes: {
+            'pulse-ring': {
+              '0%, 100%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.5)' },
+              '50%': { boxShadow: '0 0 0 14px rgba(239, 68, 68, 0)' },
+            },
+            'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+            'slide-up': { from: { opacity: '0', transform: 'translateY(12px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: radial-gradient(ellipse at 50% 0%, #1a2744 0%, #0f1419 55%); min-height: 100vh; }
+    .glass { background: rgba(21, 29, 43, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); }
+    .glow-border { box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.15), 0 8px 32px rgba(0,0,0,0.4); }
+    .log-entry { animation: fade-in 0.3s ease-out; }
+    @keyframes fade-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+    #recordBtn.recording { animation: pulse-ring 1.5s infinite; background: #ef4444 !important; border-color: #fca5a5 !important; }
+    .badge-active { ring: 2px; ring-offset: 2px; ring-offset-surface; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="font-sans text-slate-200 antialiased">
+
+  <!-- Toast -->
+  <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden animate-slide-up">
+    <div id="toastInner" class="glass glow-border rounded-xl px-5 py-3 text-sm font-medium flex items-center gap-2 shadow-2xl"></div>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+
+    <!-- Header -->
+    <header class="text-center space-y-2 animate-fade-in">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-accent mb-2">
+        <span class="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+        Persian Invoice Agent
+      </div>
+      <h1 class="text-3xl font-bold bg-gradient-to-l from-accent-glow to-accent bg-clip-text text-transparent">
+        سامانه هوشمند صدور فاکتور
+      </h1>
+      <p class="text-slate-400 text-sm">متن یا صدا را ارسال کنید — هوش مصنوعی فاکتور را استخراج و برای تأیید مدیر آماده می‌کند</p>
+    </header>
+
+    <!-- Input Section -->
+    <section class="glass glow-border rounded-2xl p-6 space-y-4 animate-slide-up">
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="space-y-2">
+          <label for="clientText" class="text-sm font-medium text-slate-300">متن دستور فاکتور</label>
+          <textarea
+            id="clientText"
+            rows="3"
+            placeholder="مثال: فاکتور برای آقای احمدی بابت طراحی وب‌سایت، مبلغ ۱۵ میلیون تومان"
+            class="w-full bg-surface-light border border-slate-700/60 rounded-xl px-4 py-3 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/40 resize-none transition"
+          ></textarea>
+        </div>
+        <div class="space-y-2">
+          <label for="clientEmail" class="text-sm font-medium text-slate-300">ایمیل مشتری (اختیاری)</label>
+          <input
+            id="clientEmail"
+            type="email"
+            placeholder="client@example.com"
+            class="w-full bg-surface-light border border-slate-700/60 rounded-xl px-4 py-3 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/40 transition"
+          />
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3 pt-1">
+        <button
+          id="recordBtn"
+          type="button"
+          class="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition font-medium text-sm"
+        >
+          <svg id="micIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+          <span id="recordLabel">ضبط دستور صوتی فاکتور</span>
+        </button>
+
+        <button
+          id="submitTextBtn"
+          type="button"
+          class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/20 border border-accent/40 text-accent-glow hover:bg-accent/30 transition font-medium text-sm"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          پردازش متن
+        </button>
+
+        <span id="recordingTimer" class="hidden text-red-400 text-sm font-mono tabular-nums"></span>
+      </div>
+    </section>
+
+    <!-- Status Badges -->
+    <section class="flex flex-wrap justify-center gap-3 animate-fade-in">
+      <div id="badge-idle" class="status-badge flex items-center gap-2 px-4 py-2 rounded-full glass text-sm transition-all ring-2 ring-accent/60 bg-accent/10">
+        <span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+        بیکار
+      </div>
+      <div id="badge-processing" class="status-badge flex items-center gap-2 px-4 py-2 rounded-full glass text-sm opacity-40 transition-all">
+        <span class="w-2.5 h-2.5 rounded-full bg-warning"></span>
+        در حال پردازش هوش مصنوعی...
+      </div>
+      <div id="badge-pending" class="status-badge flex items-center gap-2 px-4 py-2 rounded-full glass text-sm opacity-40 transition-all">
+        <span class="w-2.5 h-2.5 rounded-full bg-accent"></span>
+        منتظر تایید مدیر
+      </div>
+      <div id="badge-approved" class="status-badge flex items-center gap-2 px-4 py-2 rounded-full glass text-sm opacity-40 transition-all">
+        <span class="w-2.5 h-2.5 rounded-full bg-success"></span>
+        تایید و ارسال شد
+      </div>
+    </section>
+
+    <!-- Split Layout -->
+    <section class="grid lg:grid-cols-2 gap-6">
+
+      <!-- Left: Live Log & Metadata -->
+      <div class="glass glow-border rounded-2xl p-5 space-y-4 animate-slide-up">
+        <h2 class="text-lg font-semibold flex items-center gap-2">
+          <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+          لاگ زنده و داده‌های استخراج‌شده
+        </h2>
+
+        <div id="metadataGrid" class="grid grid-cols-2 gap-3 hidden">
+          <div class="bg-surface-light rounded-xl p-3 border border-slate-700/40">
+            <p class="text-xs text-slate-500 mb-1">نام مشتری</p>
+            <p id="metaClient" class="font-semibold text-white truncate">—</p>
+          </div>
+          <div class="bg-surface-light rounded-xl p-3 border border-slate-700/40">
+            <p class="text-xs text-slate-500 mb-1">مبلغ</p>
+            <p id="metaAmount" class="font-semibold text-accent-glow truncate">—</p>
+          </div>
+          <div class="bg-surface-light rounded-xl p-3 border border-slate-700/40">
+            <p class="text-xs text-slate-500 mb-1">ارز</p>
+            <p id="metaCurrency" class="font-semibold text-white">—</p>
+          </div>
+          <div class="bg-surface-light rounded-xl p-3 border border-slate-700/40">
+            <p class="text-xs text-slate-500 mb-1">شناسه فاکتور</p>
+            <p id="metaInvoiceId" class="font-mono text-xs text-slate-300 truncate">—</p>
+          </div>
+          <div class="col-span-2 bg-surface-light rounded-xl p-3 border border-slate-700/40">
+            <p class="text-xs text-slate-500 mb-1">شرح خدمات</p>
+            <p id="metaService" class="text-sm text-slate-200">—</p>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-500 mb-2">JSON خام (Bynara)</p>
+          <pre id="jsonOutput" class="bg-surface rounded-xl p-4 text-xs font-mono text-emerald-400/90 overflow-auto max-h-48 border border-slate-700/40 leading-relaxed">// منتظر ورودی...</pre>
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-500 mb-2">لاگ رویدادها</p>
+          <div id="liveLog" class="bg-surface rounded-xl p-3 max-h-40 overflow-y-auto space-y-1.5 border border-slate-700/40 text-xs font-mono">
+            <p class="text-slate-600">[سیستم] آماده دریافت دستور...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Invoice Inbox -->
+      <div class="glass glow-border rounded-2xl p-5 space-y-4 animate-slide-up">
+        <h2 class="text-lg font-semibold flex items-center gap-2">
+          <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          پیش‌نویس فاکتور
+        </h2>
+
+        <div id="invoiceEmpty" class="flex flex-col items-center justify-center py-16 text-slate-500 space-y-3">
+          <svg class="w-16 h-16 opacity-30" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <p class="text-sm">هنوز فاکتوری ایجاد نشده است</p>
+        </div>
+
+        <div id="invoiceCard" class="hidden space-y-4">
+          <div class="bg-gradient-to-bl from-surface-light to-surface rounded-xl p-5 border border-accent/20 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs px-2 py-0.5 rounded-full bg-warning/20 text-warning border border-warning/30">پیش‌نویس</span>
+              <span id="cardInvoiceId" class="font-mono text-xs text-slate-400"></span>
+            </div>
+            <h3 class="text-xl font-bold text-white" id="cardClient">—</h3>
+            <p class="text-slate-400 text-sm" id="cardService">—</p>
+            <div class="flex items-baseline gap-2 pt-2 border-t border-slate-700/50">
+              <span id="cardAmount" class="text-2xl font-bold text-accent-glow">—</span>
+              <span id="cardCurrency" class="text-sm text-slate-400">—</span>
+            </div>
+            <p class="text-xs text-slate-500 truncate" id="cardFilePath">—</p>
+          </div>
+
+          <button
+            id="approveBtn"
+            disabled
+            class="w-full py-3.5 rounded-xl font-semibold text-sm transition-all
+                   bg-success/20 border border-success/40 text-success
+                   hover:bg-success/30 disabled:opacity-30 disabled:cursor-not-allowed
+                   flex items-center justify-center gap-2"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            تایید و ارسال نهایی برای مشتری
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-slate-600 pb-4">
+      Persian Invoice Agent &mdash; Human-in-the-Loop Demo
+    </footer>
+  </div>
+
+  <script>
+    const API = {
+      processMultipart: '/api/v1/process-invoice-request',
+      processJson: '/api/v1/process-invoice-request/json',
+      approve: (id) => `/api/v1/invoices/approve/${id}`,
+    };
+
+    const CURRENCY_FA = { IRR: 'ریال', IRT: 'تومان', USD: 'دلار', EUR: 'یورو' };
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordingStart = null;
+    let timerInterval = null;
+    let currentInvoiceId = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function log(msg, type = 'info') {
+      const colors = { info: 'text-slate-400', success: 'text-emerald-400', error: 'text-red-400', warn: 'text-amber-400' };
+      const el = document.createElement('p');
+      el.className = `log-entry ${colors[type] || colors.info}`;
+      const time = new Date().toLocaleTimeString('fa-IR');
+      el.textContent = `[${time}] ${msg}`;
+      $('liveLog').prepend(el);
+    }
+
+    function showToast(message, type = 'success') {
+      const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+      const colors = { success: 'text-emerald-400', error: 'text-red-400', info: 'text-accent' };
+      $('toastInner').innerHTML = `<span>${icons[type]}</span><span class="${colors[type]}">${message}</span>`;
+      $('toast').classList.remove('hidden');
+      setTimeout(() => $('toast').classList.add('hidden'), 4000);
+    }
+
+    function setStatus(active) {
+      const badges = ['idle', 'processing', 'pending', 'approved'];
+      badges.forEach((b) => {
+        const el = $(`badge-${b}`);
+        if (b === active) {
+          el.classList.remove('opacity-40');
+          el.classList.add('ring-2', 'ring-accent/60', 'bg-accent/10');
+        } else {
+          el.classList.add('opacity-40');
+          el.classList.remove('ring-2', 'ring-accent/60', 'bg-accent/10');
+        }
+      });
+    }
+
+    function formatAmount(amount) {
+      return new Intl.NumberFormat('fa-IR').format(amount);
+    }
+
+    function renderInvoice(data) {
+      const inv = data.invoice_data;
+      if (!inv) return;
+
+      $('metadataGrid').classList.remove('hidden');
+      $('metaClient').textContent = inv.client_name;
+      $('metaAmount').textContent = formatAmount(inv.amount);
+      $('metaCurrency').textContent = `${inv.currency} (${CURRENCY_FA[inv.currency] || inv.currency})`;
+      $('metaService').textContent = inv.service_description;
+      $('metaInvoiceId').textContent = data.invoice_id || '—';
+
+      $('jsonOutput').textContent = JSON.stringify(data, null, 2);
+
+      $('invoiceEmpty').classList.add('hidden');
+      $('invoiceCard').classList.remove('hidden');
+      $('cardClient').textContent = inv.client_name;
+      $('cardService').textContent = inv.service_description;
+      $('cardAmount').textContent = formatAmount(inv.amount);
+      $('cardCurrency').textContent = CURRENCY_FA[inv.currency] || inv.currency;
+      $('cardInvoiceId').textContent = `#${data.invoice_id}`;
+      $('cardFilePath').textContent = data.pdf_path || '—';
+
+      currentInvoiceId = data.invoice_id;
+
+      if (data.status === 'pending_approval') {
+        $('approveBtn').disabled = false;
+        setStatus('pending');
+        log('فاکتور آماده تأیید مدیر است', 'warn');
+      }
+    }
+
+    async function processText() {
+      const text = $('clientText').value.trim();
+      if (!text) {
+        showToast('لطفاً متن دستور فاکتور را وارد کنید', 'error');
+        return;
+      }
+
+      setStatus('processing');
+      log('ارسال متن به API...');
+      $('approveBtn').disabled = true;
+
+      const body = { client_text: text };
+      const email = $('clientEmail').value.trim();
+      if (email) body.client_email = email;
+
+      try {
+        const res = await fetch(API.processJson, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'خطا در پردازش');
+
+        log('داده‌ها با موفقیت استخراج شد', 'success');
+        renderInvoice(data);
+        showToast('فاکتور استخراج شد — منتظر تأیید شما', 'info');
+      } catch (err) {
+        log(err.message, 'error');
+        showToast(err.message, 'error');
+        setStatus('idle');
+      }
+    }
+
+    async function processAudio(blob) {
+      setStatus('processing');
+      log('ارسال فایل صوتی به API...');
+      $('approveBtn').disabled = true;
+
+      const form = new FormData();
+      form.append('audio', blob, 'recording.webm');
+      const email = $('clientEmail').value.trim();
+      if (email) form.append('client_email', email);
+
+      try {
+        const res = await fetch(API.processMultipart, { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+
+        log('صدا ترجمه و پردازش شد', 'success');
+        renderInvoice(data);
+        showToast('فاکتور از صدا استخراج شد', 'info');
+      } catch (err) {
+        log(err.message, 'error');
+        showToast(err.message, 'error');
+        setStatus('idle');
+      }
+    }
+
+    async function approveInvoice() {
+      if (!currentInvoiceId) return;
+
+      $('approveBtn').disabled = true;
+      log(`درخواست تأیید فاکتور ${currentInvoiceId}...`);
+
+      try {
+        const res = await fetch(API.approve(currentInvoiceId), {
+          headers: { Accept: 'application/json' },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'خطا در تأیید');
+
+        log(`فاکتور به ${data.client_email} ارسال شد`, 'success');
+        setStatus('approved');
+        showToast('فاکتور با موفقیت تأیید و برای مشتری ارسال شد!', 'success');
+
+        const badge = document.querySelector('#invoiceCard .rounded-full');
+        if (badge) {
+          badge.textContent = 'تأیید شده';
+          badge.className = 'text-xs px-2 py-0.5 rounded-full bg-success/20 text-success border border-success/30';
+        }
+      } catch (err) {
+        log(err.message, 'error');
+        showToast(err.message, 'error');
+        $('approveBtn').disabled = false;
+      }
+    }
+
+    // MediaRecorder
+    async function toggleRecording() {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
+
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach((t) => t.stop());
+          clearInterval(timerInterval);
+          $('recordingTimer').classList.add('hidden');
+          $('recordBtn').classList.remove('recording');
+          $('recordLabel').textContent = 'ضبط دستور صوتی فاکتور';
+
+          if (audioChunks.length === 0) return;
+          const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          log(`ضبط پایان یافت (${(blob.size / 1024).toFixed(1)} KB)`);
+          await processAudio(blob);
+        };
+
+        mediaRecorder.start();
+        recordingStart = Date.now();
+        $('recordBtn').classList.add('recording');
+        $('recordLabel').textContent = 'توقف ضبط';
+        $('recordingTimer').classList.remove('hidden');
+        timerInterval = setInterval(() => {
+          const secs = Math.floor((Date.now() - recordingStart) / 1000);
+          $('recordingTimer').textContent = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+        }, 500);
+        log('ضبط صدا آغاز شد...', 'warn');
+        setStatus('processing');
+      } catch (err) {
+        log('دسترسی به میکروفون رد شد: ' + err.message, 'error');
+        showToast('دسترسی به میکروفون امکان‌پذیر نیست', 'error');
+      }
+    }
+
+    function getSupportedMimeType() {
+      const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+      return types.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    }
+
+    $('recordBtn').addEventListener('click', toggleRecording);
+    $('submitTextBtn').addEventListener('click', processText);
+    $('approveBtn').addEventListener('click', approveInvoice);
+
+    $('clientText').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) processText();
+    });
+  </script>
+</body>
+</html>

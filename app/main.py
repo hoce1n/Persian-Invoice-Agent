@@ -1,10 +1,15 @@
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_v1_router
 from app.config.settings import get_settings
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 logging.basicConfig(
     level=logging.DEBUG if get_settings().debug else logging.INFO,
@@ -28,6 +33,14 @@ app.add_middleware(
 )
 
 app.include_router(api_v1_router)
+
+if STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/", include_in_schema=False)
+async def serve_ui() -> FileResponse:
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/health", tags=["health"])

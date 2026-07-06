@@ -123,7 +123,8 @@ async def approve_invoice(
     )
 
     accept = request.headers.get("accept", "")
-    if "text/html" in accept or "*/*" in accept:
+    wants_json = "application/json" in accept and "text/html" not in accept.split(",")[0]
+    if not wants_json and ("text/html" in accept or "*/*" in accept):
         html = f"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head><meta charset="utf-8"><title>تأیید فاکتور</title></head>
