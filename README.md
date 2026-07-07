@@ -3,13 +3,13 @@
 یک پلتفرم **AI-powered** برای خودکارسازی چرخه صدور فاکتور، از دریافت ورودی متنی/صوتی فارسی تا استخراج داده ساخت‌یافته، تولید فایل فاکتور، و ارسال در جریان **Human-in-the-Loop Approval**.
 
 این پروژه برای کسب‌وکارهایی طراحی شده که می‌خواهند فرآیند زمان‌بر صدور فاکتور را از حالت دستی خارج کنند:  
-کاربر درخواست را به‌صورت متن یا صدا ارسال می‌کند، سیستم با استفاده از **Bynara DeepSeek/Whisper** اطلاعات فاکتور را استخراج می‌کند، پیش‌نویس فاکتور را می‌سازد، برای مدیر ارسال می‌کند و پس از تایید، ارسال نهایی به مشتری انجام می‌شود.
+کاربر درخواست را به‌صورت متن یا صدا ارسال می‌کند، سیستم با استفاده از **LLM Gateway** و **Whisper-compatible STT** اطلاعات فاکتور را استخراج می‌کند، پیش‌نویس فاکتور را می‌سازد، برای مدیر ارسال می‌کند و پس از تایید، ارسال نهایی به مشتری انجام می‌شود.
 
 **Tech Stack اصلی:**
 - **FastAPI** برای API backend
 - **Uvicorn** برای ASGI server
-- **Requests** برای ارتباط با Bynara API
-- **Bynara Router** (Chat Completions + Whisper Transcription)
+- **Requests** برای ارتباط با LLM Gateway
+- **OpenAI-compatible API** (Chat Completions + Whisper Transcription)
 - **Tailwind CSS (CDN)** + Vanilla JS برای UI تعاملی و Dark Theme
 
 ---
@@ -19,7 +19,7 @@
 - دریافت ورودی فاکتور به دو روش:
   - متن فارسی
   - صدای فارسی (با `MediaRecorder` و STT)
-- تبدیل صوت به متن با **Whisper-compatible endpoint** در Bynara
+- تبدیل صوت به متن با **Whisper-compatible endpoint**
 - استخراج Entityهای فاکتور با LLM:
   - `client_name`
   - `service_description`
@@ -32,6 +32,7 @@
   - Endpoint تایید
   - ارسال نهایی برای مشتری پس از Approval
 - رابط کاربری حرفه‌ای RTL (فارسی) با Dark Mode، Badgeهای وضعیت و Live Log
+- Provider-agnostic: تعویض آسان سرویس AI از طریق Environment Variables
 
 ---
 
@@ -78,7 +79,7 @@ persian-invoice-agent/
 ### 1) پیش‌نیازها
 - **Python 3.10+** (ترجیحا 3.11 یا بالاتر)
 - **pip**
-- دسترسی اینترنت برای فراخوانی Bynara API
+- دسترسی اینترنت برای فراخوانی LLM Gateway
 
 ### 2) ساخت Virtual Environment
 
@@ -105,7 +106,7 @@ pip install -r requirements.txt
 copy .env.template .env
 ```
 
-سپس مقادیر واقعی (به‌خصوص `BYNARA_API_KEY`) را در `.env` وارد کنید.
+سپس مقادیر واقعی (به‌خصوص `LLM_API_KEY` و `LLM_BASE_URL`) را در `.env` وارد کنید.
 
 ---
 
@@ -134,9 +135,9 @@ python -m uvicorn app.main:app --reload --port 8001
 | `APP_ENV` | No | محیط اجرا (`development`/`production`) |
 | `APP_BASE_URL` | Yes | Base URL مورد استفاده در لینک‌های تایید |
 | `DEBUG` | No | فعال/غیرفعال بودن لاگ سطح Debug |
-| `BYNARA_API_KEY` | Yes | کلید دسترسی Bynara Router |
-| `BYNARA_BASE_URL` | Yes | آدرس پایه API (معمولا `https://router.bynara.id/v1`) |
-| `BYNARA_MODEL` | Yes | مدل LLM برای استخراج داده فاکتور |
+| `LLM_API_KEY` | Yes | کلید دسترسی به LLM Gateway (OpenAI-compatible) |
+| `LLM_BASE_URL` | Yes | آدرس پایه API (مثلا `https://api.openai.com/v1`) |
+| `LLM_MODEL` | Yes | مدل LLM برای استخراج داده فاکتور |
 | `WHISPER_MODEL` | Yes | مدل STT برای تبدیل صوت به متن |
 | `EMAIL_SERVICE_API_KEY` | No | Placeholder برای سرویس ایمیل واقعی |
 | `EMAIL_FROM_ADDRESS` | Yes | فرستنده ایمیل‌های شبیه‌سازی‌شده |
@@ -145,26 +146,32 @@ python -m uvicorn app.main:app --reload --port 8001
 | `DEFAULT_CLIENT_EMAIL` | Yes | ایمیل پیش‌فرض مشتری در صورت عدم ارسال از UI |
 | `PDF_OUTPUT_DIR` | Yes | مسیر خروجی فایل‌های فاکتور تولیدشده |
 
+### مثال تنظیم Provider
+
+```env
+# OpenAI
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+
+# یا هر Gateway سازگار با OpenAI
+LLM_BASE_URL=https://your-gateway.example.com/v1
+LLM_MODEL=your-model-alias
+```
+
 ---
 
 ## Important Notes
 
-### 403 Forbidden از Bynara (telegram_required)
+### خطاهای رایج AI Gateway
 
-اگر خطای زیر را دریافت کردید:
+| Status | علت احتمالی | اقدام |
+|---|---|---|
+| `401` | کلید API نامعتبر یا منقضی | `LLM_API_KEY` را بررسی و جایگزین کنید |
+| `403` | محدودیت Provider (پلن، Verification، دسترسی مدل) | پنل Provider را بررسی کنید |
+| `429` | Rate limit یا سقف مصرف | کمی صبر کنید یا پلن را ارتقا دهید |
+| `502/503` | مدل یا Gateway موقتا در دسترس نیست | مدل دیگری امتحان کنید یا Retry کنید |
 
-```text
-403 forbidden: telegram_required
-Join the required Telegram group/channel and relink at /settings
-```
-
-به معنی مشکل کدنویسی نیست؛ حساب Bynara شما نیاز به Verification دارد.
-
-**راه‌حل:**
-1. وارد پنل Bynara شوید.
-2. گروه/کانال Telegram اجباری را Join کنید.
-3. در صفحه Settings، حساب را Relink کنید.
-4. سرور را ری‌استارت کنید و مجدد تست بگیرید.
+پیام‌های خطا در UI و Backend به‌صورت **AI Service Error** نمایش داده می‌شوند.
 
 ---
 
@@ -182,4 +189,3 @@ Join the required Telegram group/channel and relink at /settings
 ## License
 
 برای استفاده داخلی/آزمایشی توسعه داده شده است. در صورت انتشار عمومی، توصیه می‌شود لایسنس مناسب (مثلا MIT) به پروژه اضافه شود.
-

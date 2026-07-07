@@ -18,9 +18,9 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:8000"
     debug: bool = True
 
-    bynara_api_key: str = ""
-    bynara_base_url: str = "https://router.bynara.id/v1"
-    bynara_model: str = "gpt-4o-mini"
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-4o-mini"
     whisper_model: str = "whisper-1"
 
     email_service_api_key: str = ""
