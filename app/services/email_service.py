@@ -33,8 +33,13 @@ class EmailService:
         Includes a mock approval link the manager can click.
         """
         client_name = invoice_data.get("client_name", "—")
+        clinic_name = invoice_data.get("clinic_name", "—")
         service = invoice_data.get("service_description", "—")
         amount = invoice_data.get("amount", 0)
+        payable_amount = invoice_data.get("payable_amount", amount)
+        tax_amount = invoice_data.get("tax_amount", 0)
+        discount_amount = invoice_data.get("discount_amount", 0)
+        invoice_date = invoice_data.get("invoice_date_shamsi", "نامشخص")
         currency = invoice_data.get("currency", "IRR")
         if hasattr(currency, "value"):
             currency = currency.value
@@ -54,8 +59,13 @@ class EmailService:
             یک پیش‌نویس فاکتور جدید آماده بررسی است:
 
               • مشتری  : {client_name}
+              • کلینیک : {clinic_name}
               • خدمات  : {service}
-              • مبلغ   : {amount:,.0f} {currency}
+              • تاریخ  : {invoice_date}
+              • مبلغ پایه: {amount:,.0f} {currency}
+              • مالیات : {tax_amount:,.0f} {currency}
+              • تخفیف  : {discount_amount:,.0f} {currency}
+              • قابل پرداخت: {payable_amount:,.0f} {currency}
               • فایل   : {file_path}
 
             برای تأیید و ارسال به مشتری، روی لینک زیر کلیک کنید:

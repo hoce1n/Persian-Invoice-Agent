@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>وضعیت سامانه | Persian Invoice Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: Vazirmatn, Tahoma, sans-serif; background: #0f172a; color: #f8fafc; }
+    .card { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+    .ok { color: #34d399; } .warn { color: #fbbf24; } .bad { color: #f87171; }
+  </style>
+</head>
+<body class="min-h-screen p-6">
+  <div class="max-w-4xl mx-auto space-y-5">
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">داشبورد وضعیت سرویس</h1>
+        <p class="text-sm text-slate-400">Persian Invoice Agent</p>
+      </div>
+      <button id="refreshBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">بروزرسانی</button>
+    </header>
+
+    <section id="summary" class="card p-5">در حال بارگذاری...</section>
+    <section id="checks" class="grid grid-cols-1 md:grid-cols-2 gap-4"></section>
+    <footer class="text-xs text-slate-400 text-center pt-2">
+      <a href="/" class="text-indigo-300 hover:underline">بازگشت به UI</a>
+      ·
+      <a href="/docs" class="text-indigo-300 hover:underline">Swagger</a>
+      ·
+      <a href="/health" class="text-indigo-300 hover:underline">Health</a>
+    </footer>
+  </div>
+
+  <script>
+    const statusClass = {
+      ok: "ok", configured: "ok", connected: "ok",
+      simulated: "warn", degraded: "warn",
+      missing_api_key: "bad", unreachable: "bad"
+    };
+    const statusLabel = {
+      ok: "سالم", configured: "پیکربندی شده", connected: "متصل",
+      simulated: "شبیه سازی", degraded: "با هشدار",
+      missing_api_key: "کلید API ناقص", unreachable: "غیرقابل دسترس"
+    };
+
+    function badge(status) {
+      const cls = statusClass[status] || "warn";
+      const label = statusLabel[status] || status;
+      return `<span class="${cls} font-medium">${label}</span>`;
+    }
+
+    function card(title, status, details) {
+      const rows = Object.entries(details).map(([k, v]) =>
+        `<div class="flex justify-between text-sm py-1 border-b border-white/5"><span class="text-slate-400">${k}</span><span class="text-slate-100 max-w-[62%] truncate text-left" dir="ltr">${v}</span></div>`
+      ).join("");
+      return `<div class="card p-4"><div class="flex justify-between mb-3"><h3 class="font-semibold">${title}</h3>${badge(status)}</div>${rows}</div>`;
+    }
+
+    async function loadStatus() {
+      const summary = document.getElementById("summary");
+      const checks = document.getElementById("checks");
+      try {
+        const response = await fetch("/api/v1/status");
+        const data = await response.json();
+        summary.innerHTML = `<div class="flex items-center justify-between"><div><p class="text-lg font-semibold">${data.service}</p><p class="text-sm text-slate-400">نسخه ${data.version} · ${data.timestamp}</p></div>${badge(data.status)}</div>`;
+
+        const c = data.checks;
+        checks.innerHTML = [
+          card("LLM", c.llm.status, { "Base URL": c.llm.base_url, Model: c.llm.model }),
+          card("STT", c.stt.status, { Model: c.stt.model }),
+          card("PDF", c.pdf.status, { "Output Dir": c.pdf.output_dir, "Font Regular": c.pdf.font_regular, "Font Bold": c.pdf.font_bold }),
+          card("Email", c.email.status, { "Manager Email": c.email.manager_email }),
+          card("Voice Agent", c.voice_agent.status, { URL: c.voice_agent.url, Latency: (c.voice_agent.latency_ms || "-") + " ms", Detail: JSON.stringify(c.voice_agent.detail || "-") })
+        ].join("");
+      } catch (error) {
+        summary.innerHTML = `<span class="bad">خطا در دریافت وضعیت: ${error.message}</span>`;
+        checks.innerHTML = "";
+      }
+    }
+    document.getElementById("refreshBtn").addEventListener("click", loadStatus);
+    loadStatus();
+    setInterval(loadStatus, 30000);
+  </script>
+</body>
+</html>

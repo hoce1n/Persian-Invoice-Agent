@@ -1,38 +1,54 @@
 # Persian Invoice Agent
 
-یک پلتفرم **AI-powered** برای خودکارسازی چرخه صدور فاکتور، از دریافت ورودی متنی/صوتی فارسی تا استخراج داده ساخت‌یافته، تولید فایل فاکتور، و ارسال در جریان **Human-in-the-Loop Approval**.
+یک سرویس **AI-powered** برای خودکارسازی چرخه صدور فاکتور فارسی: دریافت متن/صوت، استخراج داده ساخت‌یافته، تولید **PDF RTL**، و جریان **Human-in-the-Loop Approval**.
 
-این پروژه برای کسب‌وکارهایی طراحی شده که می‌خواهند فرآیند زمان‌بر صدور فاکتور را از حالت دستی خارج کنند:  
-کاربر درخواست را به‌صورت متن یا صدا ارسال می‌کند، سیستم با استفاده از **LLM Gateway** و **Whisper-compatible STT** اطلاعات فاکتور را استخراج می‌کند، پیش‌نویس فاکتور را می‌سازد، برای مدیر ارسال می‌کند و پس از تایید، ارسال نهایی به مشتری انجام می‌شود.
-
-**Tech Stack اصلی:**
-- **FastAPI** برای API backend
-- **Uvicorn** برای ASGI server
-- **Requests** برای ارتباط با LLM Gateway
-- **OpenAI-compatible API** (Chat Completions + Whisper Transcription)
-- **Tailwind CSS (CDN)** + Vanilla JS برای UI تعاملی و Dark Theme
+این پروژه همراه **Persian Voice Agent** طراحی شده است. Voice Agent مکالمه صوتی را مدیریت می‌کند و در صورت نیاز، درخواست فاکتور را به این سرویس ارسال می‌کند.
 
 ---
 
-## Key Features
+## Features Delivered
 
-- دریافت ورودی فاکتور به دو روش:
-  - متن فارسی
-  - صدای فارسی (با `MediaRecorder` و STT)
-- تبدیل صوت به متن با **Whisper-compatible endpoint**
-- استخراج Entityهای فاکتور با LLM:
-  - `client_name`
-  - `service_description`
-  - `amount`
-  - `currency`
-- پاکسازی و Parse خروجی JSON حتی در صورت بازگشت در قالب Markdown code block
-- تولید محلی فایل فاکتور در پوشه `generated_invoices/`
-- جریان تایید مدیریتی (**Human-in-the-Loop**):
-  - ارسال پیش‌نویس برای مدیر
-  - Endpoint تایید
-  - ارسال نهایی برای مشتری پس از Approval
-- رابط کاربری حرفه‌ای RTL (فارسی) با Dark Mode، Badgeهای وضعیت و Live Log
-- Provider-agnostic: تعویض آسان سرویس AI از طریق Environment Variables
+| Area | Capability |
+|---|---|
+| Input | متن فارسی یا فایل صوتی (Whisper-compatible STT) |
+| Extraction | LLM با فیلدهای ایرانی: نام مشتری، نام کلینیک، تاریخ شمسی، مبلغ، مالیات، تخفیف، جمع قابل پرداخت |
+| Output | PDF فارسی RTL با فونت Vazirmatn و تاریخ شمسی |
+| Approval | ارسال شبیه‌سازی‌شده به مدیر + endpoint تأیید + ارسال نهایی به مشتری |
+| Ops | `/health`, `/api/v1/status`, داشبورد `/status` |
+| Errors | کدهای پایدار (`code`) + پیام فارسی (`message`) |
+
+---
+
+## Integration with Voice Agent
+
+| Service | Port | Health |
+|---|---|---|
+| Persian Voice Agent | `8000` | `GET /health` |
+| Persian Invoice Agent | `8001` | `GET /health` |
+
+در Voice Agent:
+
+```env
+INVOICE_AGENT_URL=http://localhost:8001
+```
+
+در Invoice Agent:
+
+```env
+VOICE_AGENT_URL=http://localhost:8000
+APP_BASE_URL=http://localhost:8001
+```
+
+Voice Agent وضعیت Invoice Agent را در `checks.invoice_agent` و Invoice Agent وضعیت Voice Agent را در `checks.voice_agent` گزارش می‌دهد.
+
+---
+
+## Tech Stack
+
+- FastAPI + Uvicorn
+- OpenAI-compatible LLM + Whisper STT
+- ReportLab + arabic-reshaper + python-bidi + jdatetime
+- Tailwind RTL UI + Status Dashboard
 
 ---
 
@@ -41,151 +57,161 @@
 ```text
 persian-invoice-agent/
 ├── .env.template
-├── .gitignore
 ├── README.md
 ├── requirements.txt
+├── run.bat
 └── app/
-    ├── __init__.py
     ├── main.py
-    ├── api/
-    │   ├── __init__.py
-    │   └── v1/
-    │       ├── __init__.py
-    │       ├── invoice_endpoints.py
-    │       └── router.py
+    ├── api/v1/
+    │   ├── invoice_endpoints.py
+    │   ├── status_endpoints.py
+    │   └── router.py
+    ├── assets/fonts/          # Vazirmatn font files
     ├── config/
-    │   ├── __init__.py
-    │   └── settings.py
+    │   ├── settings.py
+    │   └── logging_config.py
+    ├── core/
+    │   ├── errors.py
+    │   └── messages.py
     ├── prompts/
-    │   ├── __init__.py
     │   └── invoice_extractor.py
     ├── schemas/
-    │   ├── __init__.py
     │   └── invoice_schemas.py
     ├── services/
-    │   ├── __init__.py
-    │   ├── email_service.py
     │   ├── llm_service.py
+    │   ├── stt_service.py
     │   ├── pdf_service.py
-    │   └── stt_service.py
+    │   ├── email_service.py
+    │   └── voice_agent_service.py
     └── static/
-        └── index.html
+        ├── index.html
+        └── status.html
 ```
 
 ---
 
-## Prerequisites & Installation (Windows)
-
-### 1) پیش‌نیازها
-- **Python 3.10+** (ترجیحا 3.11 یا بالاتر)
-- **pip**
-- دسترسی اینترنت برای فراخوانی LLM Gateway
-
-### 2) ساخت Virtual Environment
+## Quick Start (Windows)
 
 ```powershell
 cd C:\Users\Iranian\Desktop\project\persian-invoice-agent
 python -m venv venv
-```
-
-### 3) فعال‌سازی محیط مجازی
-
-```powershell
 .\venv\Scripts\activate
-```
-
-### 4) نصب وابستگی‌ها
-
-```powershell
 pip install -r requirements.txt
-```
-
-### 5) آماده‌سازی فایل محیطی
-
-```powershell
 copy .env.template .env
-```
-
-سپس مقادیر واقعی (به‌خصوص `LLM_API_KEY` و `LLM_BASE_URL`) را در `.env` وارد کنید.
-
----
-
-## How to Run
-
-این ریپو، **Invoice Agent** است؛ بنابراین اجرای پیشنهادی روی پورت `8001`:
-
-```powershell
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-پس از اجرا:
-- UI: `http://127.0.0.1:8001/`
-- Swagger: `http://127.0.0.1:8001/docs`
-- Health: `http://127.0.0.1:8001/health`
+یا:
 
-> اگر پروژه‌ای با نقش **Voice Agent** دارید، طبق قرارداد شما می‌توانید آن را روی پورت `8000` اجرا کنید.
+```powershell
+.\run.bat
+```
+
+### Useful URLs
+
+| URL | Purpose |
+|---|---|
+| `http://127.0.0.1:8001/` | Invoice UI |
+| `http://127.0.0.1:8001/status` | Status dashboard |
+| `http://127.0.0.1:8001/docs` | Swagger |
+| `http://127.0.0.1:8001/health` | Liveness probe |
+| `http://127.0.0.1:8001/api/v1/status` | Full JSON status |
+
+### Run alongside Voice Agent
+
+```powershell
+# Terminal 1
+cd ..\persian-voice-agent
+python -m uvicorn app.main:app --reload --port 8000
+
+# Terminal 2
+cd ..\persian-invoice-agent
+python -m uvicorn app.main:app --reload --port 8001
+```
 
 ---
 
 ## Environment Variables
 
-| Key | Required | Description |
+| Key | Required | Default | Description |
+|---|---|---|---|
+| `APP_NAME` | No | Persian Invoice Agent | نام سرویس |
+| `APP_BASE_URL` | Yes | `http://localhost:8001` | Base URL لینک تأیید |
+| `LLM_API_KEY` | Yes | — | کلید LLM/STT Gateway |
+| `LLM_BASE_URL` | Yes | OpenAI URL | آدرس Gateway |
+| `LLM_MODEL` | Yes | `gpt-4o-mini` | مدل استخراج |
+| `WHISPER_MODEL` | Yes | `whisper-1` | مدل STT |
+| `MANAGER_EMAIL` | Yes | — | ایمیل مدیر |
+| `DEFAULT_CLIENT_EMAIL` | Yes | — | ایمیل پیش‌فرض مشتری |
+| `PDF_OUTPUT_DIR` | No | `./generated_invoices` | مسیر خروجی PDF |
+| `PDF_FONT_REGULAR_PATH` | No | `./app/assets/fonts/Vazirmatn-Regular.ttf` | فونت معمولی |
+| `PDF_FONT_BOLD_PATH` | No | `./app/assets/fonts/Vazirmatn-Bold.ttf` | فونت Bold |
+| `VOICE_AGENT_URL` | No | `http://localhost:8000` | آدرس Voice Agent |
+| `LOG_LEVEL` | No | `INFO` | سطح لاگ |
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
 |---|---|---|
-| `APP_NAME` | No | نام نمایشی سرویس |
-| `APP_ENV` | No | محیط اجرا (`development`/`production`) |
-| `APP_BASE_URL` | Yes | Base URL مورد استفاده در لینک‌های تایید |
-| `DEBUG` | No | فعال/غیرفعال بودن لاگ سطح Debug |
-| `LLM_API_KEY` | Yes | کلید دسترسی به LLM Gateway (OpenAI-compatible) |
-| `LLM_BASE_URL` | Yes | آدرس پایه API (مثلا `https://api.openai.com/v1`) |
-| `LLM_MODEL` | Yes | مدل LLM برای استخراج داده فاکتور |
-| `WHISPER_MODEL` | Yes | مدل STT برای تبدیل صوت به متن |
-| `EMAIL_SERVICE_API_KEY` | No | Placeholder برای سرویس ایمیل واقعی |
-| `EMAIL_FROM_ADDRESS` | Yes | فرستنده ایمیل‌های شبیه‌سازی‌شده |
-| `EMAIL_APPROVAL_RECIPIENT` | No | گیرنده داخلی برای جریان Approval |
-| `MANAGER_EMAIL` | Yes | ایمیل مدیر برای تایید فاکتور |
-| `DEFAULT_CLIENT_EMAIL` | Yes | ایمیل پیش‌فرض مشتری در صورت عدم ارسال از UI |
-| `PDF_OUTPUT_DIR` | Yes | مسیر خروجی فایل‌های فاکتور تولیدشده |
+| `POST` | `/api/v1/process-invoice-request` | پردازش multipart (متن/صوت) |
+| `POST` | `/api/v1/process-invoice-request/json` | پردازش JSON |
+| `GET` | `/api/v1/invoices/approve/{invoice_id}` | تأیید فاکتور توسط مدیر |
+| `GET` | `/api/v1/status` | وضعیت سرویس و وابستگی‌ها |
+| `GET` | `/health` | Liveness (`status`, `version`) |
 
-### مثال تنظیم Provider
+### Extracted Invoice Fields
 
-```env
-# OpenAI
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
+- `client_name`, `clinic_name`
+- `service_description`, `invoice_date_shamsi`, `invoice_number`
+- `amount`, `tax_amount`, `discount_amount`, `payable_amount`
+- `currency`, `notes`
 
-# یا هر Gateway سازگار با OpenAI
-LLM_BASE_URL=https://your-gateway.example.com/v1
-LLM_MODEL=your-model-alias
+---
+
+## Resilience & Error Handling
+
+- خطاهای API با ساختار یکسان:
+
+```json
+{
+  "detail": {
+    "code": "llm_timeout",
+    "message": "استخراج اطلاعات فاکتور کمی طول کشید..."
+  }
+}
 ```
 
----
-
-## Important Notes
-
-### خطاهای رایج AI Gateway
-
-| Status | علت احتمالی | اقدام |
-|---|---|---|
-| `401` | کلید API نامعتبر یا منقضی | `LLM_API_KEY` را بررسی و جایگزین کنید |
-| `403` | محدودیت Provider (پلن، Verification، دسترسی مدل) | پنل Provider را بررسی کنید |
-| `429` | Rate limit یا سقف مصرف | کمی صبر کنید یا پلن را ارتقا دهید |
-| `502/503` | مدل یا Gateway موقتا در دسترس نیست | مدل دیگری امتحان کنید یا Retry کنید |
-
-پیام‌های خطا در UI و Backend به‌صورت **AI Service Error** نمایش داده می‌شوند.
+- Timeout/rate-limit/provider errors برای LLM و STT
+- Global handlers برای validation و unexpected errors
+- Masking ایمیل در لاگ‌ها (`ma***@example.com`)
 
 ---
 
-## API Quick Reference
+## Known Limitations
 
-- `POST /api/v1/process-invoice-request`  
-  پردازش ورودی `multipart/form-data` (متن یا فایل صوتی)
-- `POST /api/v1/process-invoice-request/json`  
-  پردازش JSON برای کلاینت‌های برنامه‌نویسی
-- `GET /api/v1/invoices/approve/{invoice_id}`  
-  تایید فاکتور توسط مدیر و ارسال نهایی برای مشتری
+| Limitation | Notes |
+|---|---|
+| In-memory approval store | برای production نیاز به DB |
+| Email simulated | SMTP/SendGrid هنوز placeholder است |
+| Single-instance state | در چند replica نیاز به shared storage |
+
+---
+
+## Troubleshooting
+
+1. **PDF generation error**  
+   بررسی کنید فونت‌های `Vazirmatn-Regular.ttf` و `Vazirmatn-Bold.ttf` در `app/assets/fonts/` موجود باشند.
+
+2. **Voice Agent unreachable in status**  
+   Voice Agent را روی پورت `8000` اجرا کنید یا `VOICE_AGENT_URL` را اصلاح کنید.
+
+3. **Approval link wrong host**  
+   `APP_BASE_URL` باید `http://localhost:8001` (یا دامنه production) باشد.
 
 ---
 
 ## License
 
-برای استفاده داخلی/آزمایشی توسعه داده شده است. در صورت انتشار عمومی، توصیه می‌شود لایسنس مناسب (مثلا MIT) به پروژه اضافه شود.
+برای استفاده داخلی/آزمایشی توسعه داده شده است. برای انتشار عمومی، افزودن لایسنس (مثلاً MIT) توصیه می‌شود.
